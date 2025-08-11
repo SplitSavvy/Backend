@@ -1,3 +1,4 @@
+paused for a week 
 ﻿# SplitSavvy – Backend
 
 This is the backend for the SplitSavvy project, built using **Node.js**, **Express**, and **PostgreSQL**.
