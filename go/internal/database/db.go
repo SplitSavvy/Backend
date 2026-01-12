@@ -6,6 +6,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+var DB *pgxpool.Pool
+
 func Connect(connStr string) (*pgxpool.Pool, error){
 	pool, err := pgxpool.New(context.Background(), connStr)
 	if err != nil{
@@ -15,5 +17,6 @@ func Connect(connStr string) (*pgxpool.Pool, error){
 	if err != nil{
 		return nil, err
 	}
+	DB = pool
 	return pool, nil
 }
