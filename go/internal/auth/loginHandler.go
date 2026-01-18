@@ -23,6 +23,11 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(req.Password) == 0{
+		http.Error(w, "Password can't be empty", http.StatusBadRequest)
+		return
+	}
+
 	
 	var (
 		passwordHash  string
