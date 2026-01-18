@@ -1,6 +1,7 @@
 package password
 
 import (
+	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
 	"errors"
@@ -16,6 +17,14 @@ type Params struct {
 	Parallelism uint8
 	SaltLength  uint32
 	KeyLength   uint32
+}
+
+var DefaultParams = &Params{
+	Memory:      64 * 1024,
+	Iterations:  3,
+	Parallelism: 2,
+	SaltLength:  16,
+	KeyLength:   32,
 }
 
 var (
@@ -87,4 +96,22 @@ func DecodeHash(hash string) (params *Params, salt, key []byte, err error) {
 	params.KeyLength = uint32(len(key))
 
 	return params, salt, key, nil
+}
+
+func CreateHash(password string, params *Params) (string, error) {
+	salt := make([]byte, params.SaltLength)
+	_, err := rand.Read(salt)
+	if err != nil {
+		return "", err
+	}
+
+	hash := argon2.IDKey([]byte(password), salt, params.Iterations, params.Memory, params.Parallelism, params.KeyLength)
+
+	b64Salt := base64.RawStdEncoding.EncodeToString(salt)
+	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
+
+	encodedHash := fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
+		argon2.Version, params.Memory, params.Iterations, params.Parallelism, b64Salt, b64Hash)
+
+	return encodedHash, nil
 }
