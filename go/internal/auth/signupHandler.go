@@ -39,12 +39,12 @@ func HandleSignup(w http.ResponseWriter, r *http.Request) {
 	req.Username = strings.ToLower(req.Username)
 	req.Email = strings.ToLower(req.Email)
 
-	if userRegex.MatchString(req.Username) {
+	if !userRegex.MatchString(req.Username) {
 		http.Error(w, "Invalid Username", http.StatusBadRequest)
 		return
 	}
 
-	if emailRegex.MatchString(req.Email) {
+	if !emailRegex.MatchString(req.Email) {
 		http.Error(w, "Invalid Email", http.StatusBadRequest)
 		return
 	}
@@ -75,6 +75,7 @@ func HandleSignup(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		http.Error(w, "Error While Hashing Password", http.StatusInternalServerError)
+		return
 	}
 
 	query := `INSERT INTO users (username, first_name, last_name, email, hashed_password) VALUES($1, $2, $3, $4, $5)`
