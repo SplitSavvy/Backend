@@ -2,10 +2,11 @@ package auth
 
 import "github.com/go-chi/chi/v5"
 
-func Routes() *chi.Mux{
+func Routes() *chi.Mux {
 	router := chi.NewRouter()
 
 	router.Post("/login", HandleLogin)
+	router.Post("/signup", HandleSignup)
 
 	return router
 }
