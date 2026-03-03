@@ -3,11 +3,13 @@ package users
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"splitsavvy/internal/password"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -31,6 +33,7 @@ type CreateUserRequest struct {
 
 func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	var req CreateUserRequest
+	var pgErr *pgconn.PgError
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		http.Error(w, "Invalid Request Payload", http.StatusBadRequest)
@@ -62,6 +65,21 @@ func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	).Scan(&newUserID)
 
 	if err != nil {
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == "23505" {
+				switch pgErr.ConstraintName {
+				case "users_username_key":
+					http.Error(w, "Username already exist", http.StatusConflict)
+				case "users_phone_number_key":
+					http.Error(w, "Phone number already exist", http.StatusConflict)
+				case "unique_ghost_contact":
+					http.Error(w, "Ghost user already exisit", http.StatusConflict)
+				default:
+					http.Error(w, "Conflict", http.StatusConflict)
+				}
+				return
+			}
+		}
 		http.Error(w, "Could not create user profile: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -82,7 +100,14 @@ func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		_, err = tx.Exec(ctx, credQuery, newUserID, *req.Email, hashedPassword)
 
 		if err != nil {
+			if errors.As(err, &pgErr) {
+				if pgErr.Code == "23505" && pgErr.ConstraintName == "user_credentials_email_key" {
+					http.Error(w, "Email ID already exist", http.StatusConflict)
+					return
+				}
+			}
 			http.Error(w, "Couldn't Save Credentials"+err.Error(), http.StatusInternalServerError)
+			return
 		}
 	}
 
