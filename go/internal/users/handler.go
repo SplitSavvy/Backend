@@ -36,7 +36,7 @@ func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	var pgErr *pgconn.PgError
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		http.Error(w, "Invalid Request Payload", http.StatusBadRequest)
+		sendJSONError(w, "Invalid Request Payload", http.StatusBadRequest)
 		return
 	}
 
@@ -44,7 +44,7 @@ func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	tx, err := h.DB.Begin(ctx)
 
 	if err != nil {
-		http.Error(w, "Failed to Connect to DB", http.StatusInternalServerError)
+		sendJSONError(w, "Failed to Connect to DB", http.StatusInternalServerError)
 		return
 	}
 
@@ -69,29 +69,29 @@ func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 			if pgErr.Code == "23505" {
 				switch pgErr.ConstraintName {
 				case "users_username_key":
-					http.Error(w, "Username already exist", http.StatusConflict)
+					sendJSONError(w, "Username already exist", http.StatusConflict)
 				case "users_phone_number_key":
-					http.Error(w, "Phone number already exist", http.StatusConflict)
+					sendJSONError(w, "Phone number already exist", http.StatusConflict)
 				case "unique_ghost_contact":
-					http.Error(w, "Ghost user already exisit", http.StatusConflict)
+					sendJSONError(w, "Ghost user already exisit", http.StatusConflict)
 				default:
-					http.Error(w, "Conflict", http.StatusConflict)
+					sendJSONError(w, "Conflict", http.StatusConflict)
 				}
 				return
 			}
 		}
-		http.Error(w, "Could not create user profile: "+err.Error(), http.StatusInternalServerError)
+		sendJSONError(w, "Could not create user profile: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if !req.IsGhost {
 		if req.Email == nil || req.Password == nil {
-			http.Error(w, "Email and Password is mandatory", http.StatusBadRequest)
+			sendJSONError(w, "Email and Password is mandatory", http.StatusBadRequest)
 			return
 		}
 		hashedPassword, err := password.CreateHash(*req.Password, password.DefaultParams)
 		if err != nil {
-			http.Error(w, "Failed to secure password", http.StatusInternalServerError)
+			sendJSONError(w, "Failed to secure password", http.StatusInternalServerError)
 			return
 		}
 		credQuery := `INSERT INTO user_credentials (user_id, email, password_hash)
@@ -102,18 +102,18 @@ func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			if errors.As(err, &pgErr) {
 				if pgErr.Code == "23505" && pgErr.ConstraintName == "user_credentials_email_key" {
-					http.Error(w, "Email ID already exist", http.StatusConflict)
+					sendJSONError(w, "Email ID already exist", http.StatusConflict)
 					return
 				}
 			}
-			http.Error(w, "Couldn't Save Credentials"+err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, "Couldn't Save Credentials"+err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
 
 	err = tx.Commit(ctx)
 	if err != nil {
-		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
+		sendJSONError(w, "Failed to commit transaction", http.StatusInternalServerError)
 		return
 	}
 
@@ -126,4 +126,13 @@ func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(response)
 
+}
+
+func sendJSONError(w http.ResponseWriter, message string, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"error":  message,
+		"status": statusCode,
+	})
 }
