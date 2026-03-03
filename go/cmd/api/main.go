@@ -33,7 +33,7 @@ func main() {
 	}
 	// Defers closing the pool until main() exits
 	defer pool.Close()
-	fmt.Println("🚀 Database connection successful!")
+	fmt.Println("Database connection successful!")
 
 	// Initialize Chi router
 	r := chi.NewRouter()
@@ -50,7 +50,7 @@ func main() {
 
 	// Start server
 	addr := ":8080"
-	fmt.Println("🔥 Server starting on port " + addr)
+	fmt.Println("Server starting on port " + addr)
 	err = http.ListenAndServe(addr, r)
 	if err != nil {
 		log.Fatal("Server failed to start: ", err)
