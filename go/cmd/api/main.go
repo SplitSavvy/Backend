@@ -9,38 +9,46 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
 
-	"splitsavvy/internal/auth"
 	"splitsavvy/internal/database"
 )
 
-func main(){
+func main() {
+	// Load environment variables
 	err := godotenv.Load()
-	if err != nil{
-		log.Fatal("Error while loading env vars")
+	if err != nil {
+		log.Println("No .env file found, relying on system env vars")
 	}
 
-	DB_URL := os.Getenv("DB_URL")
-	PORT := os.Getenv("PORT")
-	addr := ":" + PORT
-	pool, err := database.Connect(DB_URL)
-	if err != nil{
-		log.Fatal("Error while connecting to DB", err)
+	// Grab your specific DB_URL variable
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL is not set in the environment")
 	}
+
+	// Initialize the database connection
+	pool, err := database.Connect(dbURL)
+	if err != nil {
+		log.Fatal("Error while connecting to DB: ", err)
+	}
+	// Defers closing the pool until main() exits
 	defer pool.Close()
-	fmt.Println("Database connection successful!")
+	fmt.Println("🚀 Database connection successful!")
 
+	// Initialize Chi router
 	r := chi.NewRouter()
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("HEMLO"))
+		w.Write([]byte("HEMLO FROM SPLITSAVVY"))
 	})
 
-	r.Mount("/auth", auth.Routes())
+	// === AUTH TEMPORARILY PARKED ===
+	// We will mount the users/expenses handlers here next!
 
-
-	fmt.Println("server starting on port" + addr)
+	// Start server
+	addr := ":8080"
+	fmt.Println("🔥 Server starting on port " + addr)
 	err = http.ListenAndServe(addr, r)
-	if err != nil{
+	if err != nil {
 		log.Fatal("Server failed to start: ", err)
 	}
 }
