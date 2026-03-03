@@ -123,6 +123,7 @@ func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"message": "User created successfully",
 		"id":      newUserID,
+		"status":  http.StatusCreated,
 	}
 	json.NewEncoder(w).Encode(response)
 
