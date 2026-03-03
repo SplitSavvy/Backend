@@ -10,6 +10,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"splitsavvy/internal/database"
+	"splitsavvy/internal/users"
 )
 
 func main() {
@@ -43,6 +44,9 @@ func main() {
 
 	// === AUTH TEMPORARILY PARKED ===
 	// We will mount the users/expenses handlers here next!
+
+	usersHandler := users.NewHandler(pool)
+	r.Post("/users", usersHandler.HandleCreateUser)
 
 	// Start server
 	addr := ":8080"
