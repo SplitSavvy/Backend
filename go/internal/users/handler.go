@@ -32,8 +32,8 @@ type CreateUserRequest struct {
 }
 
 func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
-	var req CreateUserRequest
 	var pgErr *pgconn.PgError
+	var req CreateUserRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		sendJSONError(w, "Invalid Request Payload", http.StatusBadRequest)
