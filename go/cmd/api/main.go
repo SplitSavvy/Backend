@@ -10,6 +10,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"splitsavvy/internal/database"
+	"splitsavvy/internal/groups"
 	"splitsavvy/internal/users"
 )
 
@@ -47,6 +48,9 @@ func main() {
 
 	usersHandler := users.NewHandler(pool)
 	r.Post("/users", usersHandler.HandleCreateUser)
+
+	groupsHandler := groups.NewHandler(pool)
+	r.Post("/groups", groupsHandler.HandleGroupRequest)
 
 	// Start server
 	addr := ":8080"
