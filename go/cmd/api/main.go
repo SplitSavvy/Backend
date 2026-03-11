@@ -49,6 +49,9 @@ func main() {
 	usersHandler := users.NewHandler(pool)
 	r.Post("/users", usersHandler.HandleCreateUser)
 
+	userSearchHandler := users.NewHandler(pool)
+	r.Get("/searchuser", userSearchHandler.SearchUser)
+
 	groupsHandler := groups.NewHandler(pool)
 	r.Post("/groups", groupsHandler.HandleGroupRequest)
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"unicode/utf8"
 
 	"splitsavvy/internal/password"
 
@@ -29,6 +30,12 @@ type CreateUserRequest struct {
 	Password    *string    `json:"password"`
 	IsGhost     bool       `json:"is_ghost"`
 	CreatedBy   *uuid.UUID `json:"created_by"`
+}
+
+type UserSearchResult struct {
+	ID       uuid.UUID `json:"id"`
+	Name     string    `json:"name"`
+	Username string    `json:"username"`
 }
 
 func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -126,6 +133,60 @@ func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		"status":  http.StatusCreated,
 	}
 	json.NewEncoder(w).Encode(response)
+
+}
+
+func (h *Handler) SearchUser(w http.ResponseWriter, r *http.Request) {
+	searchTerm := r.URL.Query().Get("q")
+	if utf8.RuneCountInString(searchTerm) < 3 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[]`))
+		return
+	}
+
+	dbSearchTerm := searchTerm + "%"
+	ctx := context.Background()
+
+	query := `
+		SELECT id, name, username 
+		FROM users 
+		WHERE username LIKE $1 
+		LIMIT 5
+	`
+
+	rows, err := h.DB.Query(ctx, query, dbSearchTerm)
+	if err != nil {
+		sendJSONError(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	defer rows.Close()
+
+	var results []UserSearchResult
+
+	for rows.Next() {
+		var user UserSearchResult
+		err := rows.Scan(&user.ID, &user.Name, &user.Username)
+		if err != nil {
+			sendJSONError(w, "Error reading user data", http.StatusInternalServerError)
+			return
+		}
+		results = append(results, user)
+	}
+
+	if err = rows.Err(); err != nil {
+		sendJSONError(w, "Error iterating users", http.StatusInternalServerError)
+		return
+	}
+
+	if results == nil {
+		results = []UserSearchResult{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(results)
 
 }
 
