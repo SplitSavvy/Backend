@@ -35,7 +35,7 @@ type CreateUserRequest struct {
 type UserSearchResult struct {
 	ID       uuid.UUID `json:"id"`
 	Name     string    `json:"name"`
-	Username string    `json:"username"`
+	Username *string   `json:"username"`
 	InGroup  bool      `json:"in_group"`
 }
 
@@ -140,6 +140,7 @@ func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) SearchUser(w http.ResponseWriter, r *http.Request) {
 	searchTerm := r.URL.Query().Get("q")
 	groupId := r.URL.Query().Get("group_id")
+	requesterId := r.URL.Query().Get("requester_id")
 	if utf8.RuneCountInString(searchTerm) < 3 {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -152,28 +153,35 @@ func (h *Handler) SearchUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if requesterId == "" {
+		sendJSONError(w, "group_id is required", http.StatusBadRequest)
+		return
+	}
+
 	dbSearchTerm := searchTerm + "%"
 	ctx := context.Background()
 
 	query := `
-			SELECT 
-    			u.id AS user_id,
-    			u.name,
-    			u.username,
-    			CASE 
-        			WHEN gm.user_id IS NOT NULL THEN TRUE
-        			ELSE FALSE
-    			END AS in_group
-			FROM users u
-			LEFT JOIN group_members gm 
-    			ON u.id = gm.user_id 
-    			AND gm.group_id = $2
-    			AND gm.removed_on IS NULL
-			WHERE u.username LIKE $1
-			LIMIT 5;
-			`
+            SELECT 
+                u.id AS user_id,
+                u.name,
+                u.username,
+                CASE 
+                    WHEN gm.user_id IS NOT NULL THEN TRUE
+                    ELSE FALSE
+                END AS in_group
+            FROM users u
+            LEFT JOIN group_members gm 
+                ON u.id = gm.user_id 
+                AND gm.group_id = $2
+                AND gm.removed_on IS NULL
+            WHERE 
+                (u.name ILIKE $1 OR u.username ILIKE $1)
+                AND (u.is_ghost = FALSE OR u.created_by = $3)
+            LIMIT 5;
+            `
 
-	rows, err := h.DB.Query(ctx, query, dbSearchTerm, groupId)
+	rows, err := h.DB.Query(ctx, query, dbSearchTerm, groupId, requesterId)
 	if err != nil {
 		sendJSONError(w, "Database error", http.StatusInternalServerError)
 		return
