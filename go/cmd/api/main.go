@@ -55,6 +55,9 @@ func main() {
 	groupsHandler := groups.NewHandler(pool)
 	r.Post("/groups", groupsHandler.HandleGroupRequest)
 
+	groupMemberAdd := groups.NewHandler(pool)
+	r.Post("/groups/{id}/members", groupMemberAdd.AddToGroup)
+
 	// Start server
 	addr := ":8080"
 	fmt.Println("Server starting on port " + addr)
