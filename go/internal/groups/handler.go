@@ -3,9 +3,13 @@ package groups
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -20,6 +24,11 @@ func NewHandler(db *pgxpool.Pool) *Handler {
 type CreateGroupRequest struct {
 	Name      string    `json:"name"`
 	CreatedBy uuid.UUID `json:"id"`
+}
+
+type AddToGroupRequest struct {
+	UserId      string `json:"user_id"`
+	RequesterId string `json:"requester_id"`
 }
 
 func (h *Handler) HandleGroupRequest(w http.ResponseWriter, r *http.Request) {
@@ -81,6 +90,72 @@ func (h *Handler) HandleGroupRequest(w http.ResponseWriter, r *http.Request) {
 		"status":  http.StatusCreated,
 	}
 	json.NewEncoder(w).Encode(response)
+}
+
+func (h *Handler) AddToGroup(w http.ResponseWriter, r *http.Request) {
+	var req AddToGroupRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+
+	if err != nil {
+		sendJSONError(w, "Invalid Request Payload", http.StatusBadRequest)
+		return
+	}
+
+	uuidToParse := chi.URLParam(r, "id")
+
+	if uuidToParse == "" {
+		sendJSONError(w, "group_id is required", http.StatusBadRequest)
+		return
+	}
+
+	groupId, err := uuid.Parse(uuidToParse)
+
+	if err != nil {
+		sendJSONError(w, "UUID parsing failed", http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
+
+	var someDummyVariable uuid.UUID
+
+	query := `
+			SELECT user_id FROM group_members WHERE user_id = $1 AND group_id = $2;
+	`
+	err = h.DB.QueryRow(ctx, query, req.RequesterId, groupId).Scan(&someDummyVariable)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			sendJSONError(w, "The group member not authorized", http.StatusForbidden)
+			return
+		}
+		sendJSONError(w, "Database Error", http.StatusInternalServerError)
+		return
+	}
+
+	addQuery := `INSERT INTO group_members(group_id, user_id, invited_by) VALUES($1, $2, $3)`
+
+	_, err = h.DB.Exec(ctx, addQuery, groupId, req.UserId, req.RequesterId)
+
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			sendJSONError(w, "User is already in the group", http.StatusConflict)
+			return
+		}
+		sendJSONError(w, "Database Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	response := map[string]interface{}{
+		"message": "Added succesfully",
+		"status":  http.StatusCreated,
+	}
+	json.NewEncoder(w).Encode(response)
+
 }
 
 func sendJSONError(w http.ResponseWriter, message string, statusCode int) {
