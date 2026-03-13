@@ -142,7 +142,12 @@ func (h *Handler) AddToGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addQuery := `INSERT INTO group_members(group_id, user_id, invited_by) VALUES($1, $2, $3)`
+	addQuery := `
+					INSERT INTO group_members (group_id, user_id, invited_by, removed_on) 
+					VALUES ($1, $2, $3, NULL)
+					ON CONFLICT (group_id, user_id) 
+					DO UPDATE SET removed_on = NULL, invited_by = EXCLUDED.invited_by;
+				`
 
 	_, err = h.DB.Exec(ctx, addQuery, groupId, req.UserId, req.RequesterId)
 
