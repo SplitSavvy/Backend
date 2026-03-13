@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -32,10 +33,11 @@ type AddToGroupRequest struct {
 }
 
 type GroupMember struct {
-	ID       uuid.UUID `json:"id"`
-	Name     string    `json:"name"`
-	Username *string   `json:"username"`
-	IsGhost  bool      `json:"is_ghost"`
+	ID        uuid.UUID  `json:"id"`
+	Name      string     `json:"name"`
+	Username  *string    `json:"username"`
+	IsGhost   bool       `json:"is_ghost"`
+	RemovedOn *time.Time `json:"removed_on"`
 }
 
 func (h *Handler) HandleGroupRequest(w http.ResponseWriter, r *http.Request) {
@@ -186,15 +188,15 @@ func (h *Handler) GetMembers(w http.ResponseWriter, r *http.Request) {
 
 	query := `
         SELECT 
-            u.id, 
-            u.name, 
-            u.username, 
-            u.is_ghost
-        FROM users u
-        INNER JOIN group_members gm 
-            ON u.id = gm.user_id
-        WHERE gm.group_id = $1 
-            AND gm.removed_on IS NULL;
+    		u.id, 
+    		u.name, 
+    		u.username, 
+    		u.is_ghost,
+    		gm.removed_on
+		FROM users u
+		INNER JOIN group_members gm 
+    		ON u.id = gm.user_id
+		WHERE gm.group_id = $1; 
     `
 
 	rows, err := h.DB.Query(ctx, query, groupId)
