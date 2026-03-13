@@ -57,6 +57,7 @@ func main() {
 
 	groupMemberAdd := groups.NewHandler(pool)
 	r.Post("/groups/{id}/members", groupMemberAdd.AddToGroup)
+	r.Get("/groups/{id}/members", groupMemberAdd.GetMembers)
 
 	// Start server
 	addr := ":8080"
